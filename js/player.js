@@ -473,6 +473,20 @@ function animate(ts) {
 
 requestAnimationFrame(animate);
 
+// ─── cursor auto-hide (5s idle) ────────────────────────────
+let cursorTimer = null;
+function showCursor() {
+  document.body.style.cursor = '';
+  aCv.style.cursor = isDragging ? 'grabbing' : 'grab';
+  clearTimeout(cursorTimer);
+  cursorTimer = setTimeout(() => {
+    document.body.style.cursor = 'none';
+    aCv.style.cursor = 'none';
+  }, 5000);
+}
+document.addEventListener('mousemove', showCursor, { passive: true });
+showCursor();
+
 // ─── eye toggle ────────────────────────────────────────────
 document.getElementById('eye-btn').addEventListener('click', () => {
   document.body.classList.toggle('ui-hidden');

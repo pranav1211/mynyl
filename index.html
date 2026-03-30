@@ -73,11 +73,30 @@
         <div class="kbd-hint">space · ← → seek · ↑ ↓ vol</div>
       </div>
 
+      <!-- Disk speed control -->
+      <div class="speed-ctrl">
+        <span class="speed-label">RPM</span>
+        <div class="speed-row">
+          <button class="speed-btn" id="speed-dec" title="Slower">−</button>
+          <input class="speed-val" id="speed-val" type="number" value="33" min="1" max="200">
+          <button class="speed-btn" id="speed-inc" title="Faster">+</button>
+        </div>
+      </div>
+
+      <!-- Queue -->
+      <div class="queue-panel">
+        <div class="queue-header">
+          <span class="queue-label">Queue</span>
+          <span class="queue-count" id="queue-count">0 tracks</span>
+        </div>
+        <div class="queue-list" id="queue-list"></div>
+      </div>
+
       <div class="upload-zone">
-        <span class="upload-label">Load record</span>
+        <span class="upload-label">Add to queue</span>
         <button class="upload-btn"
           onclick="document.getElementById('file-input').click()">Drop file or browse</button>
-        <input type="file" id="file-input" accept="audio/*,.flac,.m4a,.opus,.wma">
+        <input type="file" id="file-input" accept="audio/*,.flac,.m4a,.opus,.wma" multiple>
       </div>
     </div>
 

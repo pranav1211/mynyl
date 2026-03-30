@@ -220,25 +220,29 @@ function drawRecord(angle) {
   rCtx.translate(CX, CY);
   rCtx.rotate(angle);
 
-  // label: album art if present, otherwise solid black (same as disc)
+  // label: gradient always shown; album art overlaid when available
+  const lg = rCtx.createRadialGradient(-lR * 0.15, -lR * 0.15, 0, 0, 0, lR);
+  lg.addColorStop(0,    THEME.labelStop0);
+  lg.addColorStop(0.55, THEME.labelStop55);
+  lg.addColorStop(1,    THEME.labelStop100);
   rCtx.beginPath(); rCtx.arc(0, 0, lR, 0, Math.PI * 2);
+  rCtx.fillStyle = window._labelImage ? '#1a0a04' : lg;
+  rCtx.fill();
+  rCtx.strokeStyle = 'rgba(0,0,0,0.28)'; rCtx.lineWidth = 0.8; rCtx.stroke();
+
+  for (const fr of [0.36, 0.56, 0.78]) {
+    rCtx.beginPath(); rCtx.arc(0, 0, lR * fr, 0, Math.PI * 2);
+    rCtx.strokeStyle = THEME.labelRing; rCtx.lineWidth = 0.5; rCtx.stroke();
+  }
+
+  // counter-rotate so content stays upright
+  rCtx.rotate(-angle);
+
   if (window._labelImage) {
-    rCtx.fillStyle = '#1a0a04';
-    rCtx.fill();
-    rCtx.strokeStyle = 'rgba(0,0,0,0.28)'; rCtx.lineWidth = 0.8; rCtx.stroke();
-    for (const fr of [0.36, 0.56, 0.78]) {
-      rCtx.beginPath(); rCtx.arc(0, 0, lR * fr, 0, Math.PI * 2);
-      rCtx.strokeStyle = THEME.labelRing; rCtx.lineWidth = 0.5; rCtx.stroke();
-    }
-    rCtx.rotate(-angle);
     rCtx.save();
     rCtx.beginPath(); rCtx.arc(0, 0, lR, 0, Math.PI * 2); rCtx.clip();
     rCtx.drawImage(window._labelImage, -lR, -lR, lR * 2, lR * 2);
     rCtx.restore();
-  } else {
-    rCtx.fillStyle = THEME.vinylDisc;
-    rCtx.fill();
-    rCtx.rotate(-angle);
   }
   rCtx.restore();
 
