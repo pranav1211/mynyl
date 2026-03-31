@@ -13,6 +13,10 @@ let PIV_X, PIV_Y;
 
 // ─── theme (reads CSS custom properties set in the theme file) ──
 let THEME = {};
+let ACTIVE_THEME_NAME = 'wood';
+let ACTIVE_THEME_MODULE = {};
+const themeModules = window.MYNYL_THEME_MODULES || (window.MYNYL_THEME_MODULES = {});
+let themeModuleLoader = null;
 
 function readTheme() {
   const s = getComputedStyle(document.documentElement);
@@ -57,6 +61,9 @@ function readTheme() {
     vinylRimLight: v('--vinyl-rim-light') || 'rgba(255,255,255,0.04)',
     vinylRimShadow: v('--vinyl-rim-shadow') || 'rgba(0,0,0,0.33)',
     vinylShadowRing: v('--vinyl-shadow-ring') || 'rgba(0,0,0,0.16)',
+    vinylDropShadow: v('--vinyl-drop-shadow') || 'rgba(0,0,0,0)',
+    vinylDropShadowBlur: n('--vinyl-drop-shadow-blur', 0),
+    vinylDropShadowOffsetY: n('--vinyl-drop-shadow-offset-y', 0),
     splatterColor: v('--vinyl-splatter-color') || 'rgba(255,255,255,0.14)',
     splatterSecondary: v('--vinyl-splatter-secondary') || 'rgba(255,255,255,0.08)',
     splatterCount: Math.max(0, Math.round(n('--vinyl-splatter-count', 0))),
@@ -143,7 +150,7 @@ function computeArmAngles() {
   const dOuter = Math.hypot(outerPtX - PIV_X, outerPtY - PIV_Y);
   const ARM_LEN = dOuter;
 
-  const aOuter = Math.atan2(outerPtY - PIV_Y, outerPtX - PIV_X) * 180 / Math.PI;
+  const rawOuter = Math.atan2(outerPtY - PIV_Y, outerPtX - PIV_X) * 180 / Math.PI;
 
   const D = Math.hypot(PIV_X - REC_CX, PIV_Y - REC_CY);
   const a2 = (ARM_LEN * ARM_LEN - innerR * innerR + D * D) / (2 * D);
@@ -157,12 +164,18 @@ function computeArmAngles() {
   const iy1 = midY + h2 * perpY;
   const ix2 = midX - h2 * perpX;
   const iy2 = midY - h2 * perpY;
-  const innerPt = ix1 < ix2 ? { x: ix1, y: iy1 } : { x: ix2, y: iy2 };
-  const aInner = Math.atan2(innerPt.y - PIV_Y, innerPt.x - PIV_X) * 180 / Math.PI;
-
   const parkTgtX = REC_CX + REC_R * THEME.armParkOffsetX;
   const parkTgtY = REC_CY + REC_R * THEME.armParkOffsetY;
-  const aParked = Math.atan2(parkTgtY - PIV_Y, parkTgtX - PIV_X) * 180 / Math.PI;
+  const rawParked = Math.atan2(parkTgtY - PIV_Y, parkTgtX - PIV_X) * 180 / Math.PI;
+  const aOuter = normalizeAngleNear(rawOuter, rawParked);
+
+  const innerCandidates = [
+    { x: ix1, y: iy1, a: normalizeAngleNear(Math.atan2(iy1 - PIV_Y, ix1 - PIV_X) * 180 / Math.PI, aOuter) },
+    { x: ix2, y: iy2, a: normalizeAngleNear(Math.atan2(iy2 - PIV_Y, ix2 - PIV_X) * 180 / Math.PI, aOuter) },
+  ];
+  innerCandidates.sort((a, b) => Math.abs(a.a - aOuter) - Math.abs(b.a - aOuter));
+  const aInner = innerCandidates[0].a;
+  const aParked = normalizeAngleNear(rawParked, aOuter);
 
   return { ARM_LEN, aOuter, aInner, aParked };
 }
@@ -182,17 +195,31 @@ function refreshTheme() {
 refreshTheme();
 window.addEventListener('resize', refreshTheme);
 window.refreshMynylTheme = refreshTheme;
+window.normalizeMynylAngle = normalizeAngleNear;
 
 const themeLink = document.querySelector('link[data-mynyl-theme]');
 if (themeLink) {
   themeLink.addEventListener('load', refreshTheme);
-  window.setMynylTheme = href => {
-    themeLink.setAttribute('href', href);
+  window.setMynylTheme = config => {
+    const settings = typeof config === 'string'
+      ? { cssHref: config, themeName: ACTIVE_THEME_NAME, scriptHref: '' }
+      : config;
+
+    ACTIVE_THEME_NAME = settings.themeName || ACTIVE_THEME_NAME;
+    loadThemeModule(ACTIVE_THEME_NAME, settings.scriptHref || '');
+    themeLink.setAttribute('href', settings.cssHref);
   };
 }
 
 // ─── geometry helpers ──────────────────────────────────────
 function toRad(a) { return a * Math.PI / 180; }
+
+function normalizeAngleNear(angle, reference) {
+  let out = angle;
+  while (out - reference > 180) out -= 360;
+  while (out - reference < -180) out += 360;
+  return out;
+}
 
 function armTipPos(angle) {
   return {
@@ -320,8 +347,32 @@ function drawSplatter(CX, CY, R, angle) {
   rCtx.restore();
 }
 
+function loadThemeModule(themeName, scriptHref) {
+  if (!scriptHref) {
+    ACTIVE_THEME_MODULE = themeModules[themeName] || {};
+    return;
+  }
+
+  if (themeModules[themeName]) {
+    ACTIVE_THEME_MODULE = themeModules[themeName];
+    return;
+  }
+
+  ACTIVE_THEME_MODULE = {};
+  if (themeModuleLoader) themeModuleLoader.remove();
+  const script = document.createElement('script');
+  script.src = scriptHref;
+  script.async = true;
+  script.dataset.themeModule = themeName;
+  script.addEventListener('load', () => {
+    ACTIVE_THEME_MODULE = themeModules[themeName] || {};
+  });
+  document.head.appendChild(script);
+  themeModuleLoader = script;
+}
+
 // ─── draw: record ──────────────────────────────────────────
-function drawRecord(angle) {
+function drawDefaultRecord(angle) {
   const R = REC_R;
   const CX = R;
   const CY = R;
@@ -330,8 +381,14 @@ function drawRecord(angle) {
 
   rCtx.beginPath();
   rCtx.arc(CX, CY, R - 1, 0, Math.PI * 2);
+  rCtx.shadowColor = THEME.vinylDropShadow;
+  rCtx.shadowBlur = THEME.vinylDropShadowBlur;
+  rCtx.shadowOffsetY = THEME.vinylDropShadowOffsetY;
   rCtx.fillStyle = THEME.vinylDisc;
   rCtx.fill();
+  rCtx.shadowColor = 'rgba(0,0,0,0)';
+  rCtx.shadowBlur = 0;
+  rCtx.shadowOffsetY = 0;
 
   const rim = rCtx.createLinearGradient(CX, CY - R, CX, CY + R);
   rim.addColorStop(0, THEME.vinylRimLight);
@@ -455,7 +512,7 @@ function drawRecord(angle) {
 }
 
 // ─── draw: tonearm ─────────────────────────────────────────
-function drawArm(angle) {
+function drawDefaultArm(angle) {
   aCtx.clearRect(0, 0, VW, VH);
 
   const ARM_LEN = GEO.ARM_LEN;
@@ -589,4 +646,40 @@ function drawArm(angle) {
   aCtx.fill();
 
   aCtx.restore();
+}
+
+function drawRecord(angle) {
+  if (ACTIVE_THEME_MODULE && typeof ACTIVE_THEME_MODULE.drawRecord === 'function') {
+    ACTIVE_THEME_MODULE.drawRecord({
+      angle,
+      theme: THEME,
+      geo: GEO,
+      record: { radius: REC_R, cx: REC_CX, cy: REC_CY },
+      ctx: rCtx,
+      canvas: rCv,
+      state: { hasFile, groovePulse, labelImage: window._labelImage },
+      defaults: { drawRecord: drawDefaultRecord },
+      helpers: { toRad }
+    });
+    return;
+  }
+  drawDefaultRecord(angle);
+}
+
+function drawArm(angle) {
+  if (ACTIVE_THEME_MODULE && typeof ACTIVE_THEME_MODULE.drawArm === 'function') {
+    ACTIVE_THEME_MODULE.drawArm({
+      angle,
+      theme: THEME,
+      geo: GEO,
+      pivot: { x: PIV_X, y: PIV_Y },
+      viewport: { width: VW, height: VH },
+      ctx: aCtx,
+      canvas: aCv,
+      defaults: { drawArm: drawDefaultArm },
+      helpers: { toRad }
+    });
+    return;
+  }
+  drawDefaultArm(angle);
 }

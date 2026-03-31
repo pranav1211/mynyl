@@ -145,6 +145,13 @@ body.ui-hidden .ui-panel {
   flex-direction: column;
   align-items: flex-end;
   gap: 6px;
+  transition: opacity 0.3s, transform 0.25s;
+}
+
+body.ui-hidden .theme-switcher {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(8px);
 }
 
 .theme-switcher-label {

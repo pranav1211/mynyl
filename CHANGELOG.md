@@ -3,9 +3,11 @@
 ## [Current]
 
 ### Added
+- **Theme template pack** — `themes/_template/` now provides a reusable CSS/JS starter plus geometry notes for generating new themes or handing the work to another AI
+- **Theme JS modules** — bundled themes can now ship a `theme.js` file to override canvas rendering for custom arm or record shapes
 - **Minimal light theme** — bright white theme with a slim straight arm, pale UI shell, and splatter-style vinyl treatment
 - **Theme switcher** — bottom-right selector swaps between bundled themes and remembers the last choice
-- **Theme subcomponents** — the wood theme is now split into `background.css`, `vinyl.css`, `arm.css`, and `ui.css`, with `css/theme-wood.css` acting as the entrypoint
+- **Theme subcomponents** — bundled themes now split their CSS into `background.css`, `vinyl.css`, `arm.css`, and `ui.css` inside each theme folder
 - **Full visual theme contract** — theme CSS can now control record geometry, groove treatment, tonearm style, headshell/needle/counterweight proportions, background motion, and UI palette
 - **Theme refresh helpers** — `window.refreshMynylTheme()` rereads CSS variables and `window.setMynylTheme(href)` swaps the active theme stylesheet
 - **Stop button** — square stop icon resets playback, rewinds to start, parks arm, silences crackle immediately
@@ -22,7 +24,8 @@
 - **Track info display** — title and artist parsed from filename (`Title - Artist.ext`) shown in bottom bar
 
 ### Changed
-- Split monolithic `index.html` into separate files: `css/main.css`, `css/theme-wood.css`, `js/audio.js`, `js/render.js`, `js/player.js`
+- Theme assets are now grouped in a single `themes/<name>/` folder instead of being split between `css/` and `themes/`
+- Split monolithic `index.html` into separate files: `css/main.css`, `themes/<name>/theme.css`, `js/audio.js`, `js/render.js`, `js/player.js`
 - Theming expanded from color-only swaps into swappable full visual packs driven by CSS custom properties
 - Tonearm inner boundary set to 30% of record radius — stylus cannot reach the label circle
 - Drag interaction simplified: drag only moves arm when not playing; drop on groove snaps to outer start position

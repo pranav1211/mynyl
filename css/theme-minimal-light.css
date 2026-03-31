@@ -1,6 +1,0 @@
-/* Minimal light theme entrypoint. */
-
-@import url('./themes/minimal-light/background.css');
-@import url('./themes/minimal-light/vinyl.css');
-@import url('./themes/minimal-light/arm.css');
-@import url('./themes/minimal-light/ui.css');

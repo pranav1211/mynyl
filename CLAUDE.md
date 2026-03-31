@@ -8,14 +8,25 @@ A browser-based vinyl record audio player. Purely client-side HTML/CSS/JS — no
 index.html          — HTML shell only, no inline CSS or JS
 css/
   main.css          — structural styles only (layout, sizing, no colors)
-  theme-wood.css    — warm amber theme entrypoint (imports sub-files)
-  theme-minimal-light.css — bright minimal theme entrypoint
-  themes/wood/
+themes/
+  _template/
+    theme.css       — starter theme entrypoint
+    theme.js        — starter JS hook file
+    README.md       — geometry, token, and hook contract for AI handoff
+    background.css  — starter layout + background tokens
+    vinyl.css       — starter vinyl tokens
+    arm.css         — starter arm tokens
+    ui.css          — starter UI tokens
+  wood/
+    theme.css       — active theme stylesheet entrypoint
+    theme.js        — optional theme-specific canvas renderer overrides
     background.css  — layout tokens, background, hint overlay
     vinyl.css       — vinyl + label tokens
     arm.css         — tonearm tokens
     ui.css          — panel/button/text styling
-  themes/minimal-light/
+  minimal-light/
+    theme.css       — active theme stylesheet entrypoint
+    theme.js        — optional theme-specific canvas renderer overrides
     background.css  — layout tokens, background, hint overlay
     vinyl.css       — vinyl + label tokens
     arm.css         — tonearm tokens
@@ -51,7 +62,7 @@ States: idle → spinning up (2s crackle) → playing → song end (2s crackle) 
 Key flags: `isPlaying`, `isSpinningUp`, `songIsOver`, `hasFile`, `isDragging`
 
 ## Theming
-Themes are no longer color-only. `css/theme-wood.css` is the canonical contract for:
+Themes are no longer color-only. `themes/_template/README.md` is the canonical handoff contract, and each `themes/<name>/` folder contains both CSS and optional JS for that theme.
 
 - UI palette and panel styling
 - background canvas colors and motion strength
@@ -59,12 +70,13 @@ Themes are no longer color-only. `css/theme-wood.css` is the canonical contract 
 - vinyl style variants: `classic`, `etched`, `minimal`
 - tonearm style variants: `classic`, `straight`, `chunky`
 - arm geometry details like headshell bend, counterweight size, pivot radius, needle proportions
+- optional custom arm / record rendering through `theme.js`
 
-To add a new theme, duplicate `css/theme-wood.css` plus `css/themes/wood/`, rename both, update the `@import` paths in the entry file, edit the sub-files you need, and change the `<link>` in `index.html`.
+To add a new theme, duplicate `themes/_template/` or `themes/wood/`, rename the folder, edit the CSS sub-files you need, and optionally customize `theme.js` for custom canvas drawing. Then add the theme to the switcher registry in `js/player.js`.
 
 Renderer helpers:
 - `window.refreshMynylTheme()` — rereads CSS variables and recomputes geometry
-- `window.setMynylTheme(href)` — swaps the active theme stylesheet when `data-mynyl-theme` is present on the `<link>`
+- `window.setMynylTheme({ cssHref, scriptHref, themeName })` — swaps the active theme stylesheet and optional theme JS
 
 UI note:
 - theme selection lives in the bottom-right `#theme-select` dropdown and persists via `localStorage`

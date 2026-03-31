@@ -1,9 +1,0 @@
-/* Wood theme entrypoint.
-   Keep this file as the thing index.html links to.
-   The actual theme is split into focused sub-files so a new theme
-   can swap only the vinyl, arm, or UI layer if needed. */
-
-@import url('./themes/wood/background.css');
-@import url('./themes/wood/vinyl.css');
-@import url('./themes/wood/arm.css');
-@import url('./themes/wood/ui.css');

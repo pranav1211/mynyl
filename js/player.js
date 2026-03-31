@@ -13,15 +13,23 @@ let songIsOver = false;
 let loadedFile  = null;
 
 const THEMES = {
-  wood: 'css/theme-wood.css',
-  'minimal-light': 'css/theme-minimal-light.css',
+  wood: {
+    cssHref: 'themes/wood/theme.css',
+    scriptHref: 'themes/wood/theme.js',
+    themeName: 'wood',
+  },
+  'minimal-light': {
+    cssHref: 'themes/minimal-light/theme.css',
+    scriptHref: 'themes/minimal-light/theme.js',
+    themeName: 'minimal-light',
+  },
 };
 
 function applyThemeSelection(themeName) {
-  const href = THEMES[themeName] || THEMES.wood;
+  const themeConfig = THEMES[themeName] || THEMES.wood;
   const select = document.getElementById('theme-select');
   if (select && select.value !== themeName) select.value = themeName;
-  if (window.setMynylTheme) window.setMynylTheme(href);
+  if (window.setMynylTheme) window.setMynylTheme(themeConfig);
   try { localStorage.setItem('mynyl-theme', themeName); } catch {}
 }
 
@@ -422,7 +430,8 @@ window.addEventListener('mousemove', e => {
     setVol((e.clientX - volTrack.getBoundingClientRect().left) / volTrack.offsetWidth);
   }
   if (isDragging) {
-    armAngle = Math.atan2(e.clientY - PIV_Y, e.clientX - PIV_X) * 180 / Math.PI;
+    const dragAngle = Math.atan2(e.clientY - PIV_Y, e.clientX - PIV_X) * 180 / Math.PI;
+    armAngle = window.normalizeMynylAngle ? window.normalizeMynylAngle(dragAngle, GEO.aParked) : dragAngle;
     targetArmAngle = armAngle;
   }
 });
@@ -541,6 +550,8 @@ try {
   const savedTheme = localStorage.getItem('mynyl-theme');
   if (savedTheme && THEMES[savedTheme]) {
     applyThemeSelection(savedTheme);
+  } else {
+    applyThemeSelection('wood');
   }
 } catch {}
 
