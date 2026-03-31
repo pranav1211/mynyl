@@ -3,6 +3,9 @@
 ## [Current]
 
 ### Added
+- **Theme subcomponents** — the wood theme is now split into `background.css`, `vinyl.css`, `arm.css`, and `ui.css`, with `css/theme-wood.css` acting as the entrypoint
+- **Full visual theme contract** — theme CSS can now control record geometry, groove treatment, tonearm style, headshell/needle/counterweight proportions, background motion, and UI palette
+- **Theme refresh helpers** — `window.refreshMynylTheme()` rereads CSS variables and `window.setMynylTheme(href)` swaps the active theme stylesheet
 - **Stop button** — square stop icon resets playback, rewinds to start, parks arm, silences crackle immediately
 - **Windows MediaSession integration** — song title, artist, and album art appear in OS media overlay (volume popup, lock screen, etc.); play/pause/previous controls work from OS
 - **Album art support** — reads embedded cover art from MP3 (ID3v2), FLAC, M4A, OGG, and OPUS files via jsmediatags; displayed in the spinning label circle, counter-rotated to stay upright
@@ -18,7 +21,7 @@
 
 ### Changed
 - Split monolithic `index.html` into separate files: `css/main.css`, `css/theme-wood.css`, `js/audio.js`, `js/render.js`, `js/player.js`
-- Theming separated into swappable theme CSS files
+- Theming expanded from color-only swaps into swappable full visual packs driven by CSS custom properties
 - Tonearm inner boundary set to 30% of record radius — stylus cannot reach the label circle
 - Drag interaction simplified: drag only moves arm when not playing; drop on groove snaps to outer start position
 - Playhead groove highlight ring removed (was visually confusing)

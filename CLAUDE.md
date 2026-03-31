@@ -8,10 +8,15 @@ A browser-based vinyl record audio player. Purely client-side HTML/CSS/JS — no
 index.html          — HTML shell only, no inline CSS or JS
 css/
   main.css          — structural styles only (layout, sizing, no colors)
-  theme-wood.css    — warm amber/mahogany color theme (swap to change theme)
+  theme-wood.css    — warm amber theme entrypoint (imports sub-files)
+  themes/wood/
+    background.css  — layout tokens, background, hint overlay
+    vinyl.css       — vinyl + label tokens
+    arm.css         — tonearm tokens
+    ui.css          — panel/button/text styling
 js/
   audio.js          — Web Audio API: crackle synthesis, fade helpers, level meter
-  render.js         — Canvas rendering: background, record, tonearm, geometry
+  render.js         — Canvas rendering: background, record, tonearm, geometry, theme contract
   player.js         — State machine: playback, drag, keyboard, file loading
 ```
 
@@ -40,7 +45,20 @@ States: idle → spinning up (2s crackle) → playing → song end (2s crackle) 
 Key flags: `isPlaying`, `isSpinningUp`, `songIsOver`, `hasFile`, `isDragging`
 
 ## Theming
-To add a new theme, duplicate `css/theme-wood.css`, rename it, update the color variables, and change the `<link>` in `index.html`. The theme file owns all colors; `main.css` owns all structure.
+Themes are no longer color-only. `css/theme-wood.css` is the canonical contract for:
+
+- UI palette and panel styling
+- background canvas colors and motion strength
+- record scale, arm pivot placement, groove boundaries
+- vinyl style variants: `classic`, `etched`, `minimal`
+- tonearm style variants: `classic`, `straight`, `chunky`
+- arm geometry details like headshell bend, counterweight size, pivot radius, needle proportions
+
+To add a new theme, duplicate `css/theme-wood.css` plus `css/themes/wood/`, rename both, update the `@import` paths in the entry file, edit the sub-files you need, and change the `<link>` in `index.html`.
+
+Renderer helpers:
+- `window.refreshMynylTheme()` — rereads CSS variables and recomputes geometry
+- `window.setMynylTheme(href)` — swaps the active theme stylesheet when `data-mynyl-theme` is present on the `<link>`
 
 ## Needle geometry
 - `aOuter` — arm angle when stylus is at outer groove edge (~91% of record radius)

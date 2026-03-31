@@ -48,10 +48,10 @@ On Windows, the track appears in the system volume overlay and lock screen with 
 index.html
 css/
   main.css          layout and structure
-  theme-wood.css    warm amber color theme
+  theme-wood.css    warm amber full visual theme
 js/
   audio.js          Web Audio API, crackle synthesis, fades
-  render.js         canvas rendering, tonearm geometry
+  render.js         canvas rendering, theme contract, tonearm geometry
   player.js         playback state, controls, file loading
 ```
 
@@ -59,7 +59,38 @@ No build step. No framework. Open `index.html` directly in a browser.
 
 ## Theming
 
-To create a new color theme, duplicate `css/theme-wood.css`, rename it, and change the colors. Then swap the `<link>` in `index.html`. The theme file controls all colors; `main.css` controls all layout.
+Themes are now full visual packs, not just color swaps.
+
+To create a new theme:
+
+1. Duplicate `css/theme-wood.css`
+2. Duplicate the matching theme folder, for example `css/themes/wood/`
+3. Rename both, for example `css/theme-brushed-steel.css` and `css/themes/brushed-steel/`
+4. Update the `@import` paths in the new entry file
+5. Edit the sub-files for the parts you want to change
+6. Swap the theme `<link>` in `index.html`
+
+Theme structure:
+
+- entry file: `css/theme-wood.css`
+- background/layout tokens: `css/themes/wood/background.css`
+- vinyl/label tokens: `css/themes/wood/vinyl.css`
+- tonearm tokens: `css/themes/wood/arm.css`
+- UI shell styles: `css/themes/wood/ui.css`
+
+The theme file can control:
+
+- background glow and drift
+- record scale and arm pivot placement
+- vinyl renderer style (`classic`, `etched`, `minimal`)
+- groove density, sheen, rim lighting, label sizing
+- tonearm renderer style (`classic`, `straight`, `chunky`)
+- headshell bend/length, counterweight size, pivot size, needle styling
+- all UI colors and panel treatments
+
+`main.css` still owns structure. `theme-*.css` now owns both palette and canvas appearance.
+
+If you swap the theme stylesheet dynamically in the browser, `render.js` exposes `window.refreshMynylTheme()` and `window.setMynylTheme('css/theme-name.css')`.
 
 ## Dependencies
 
