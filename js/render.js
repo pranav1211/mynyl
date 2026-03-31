@@ -56,6 +56,11 @@ function readTheme() {
     vinylSheenWidth: n('--vinyl-sheen-width', 0.06),
     vinylRimLight: v('--vinyl-rim-light') || 'rgba(255,255,255,0.04)',
     vinylRimShadow: v('--vinyl-rim-shadow') || 'rgba(0,0,0,0.33)',
+    vinylShadowRing: v('--vinyl-shadow-ring') || 'rgba(0,0,0,0.16)',
+    splatterColor: v('--vinyl-splatter-color') || 'rgba(255,255,255,0.14)',
+    splatterSecondary: v('--vinyl-splatter-secondary') || 'rgba(255,255,255,0.08)',
+    splatterCount: Math.max(0, Math.round(n('--vinyl-splatter-count', 0))),
+    splatterSize: n('--vinyl-splatter-size', 0.015),
 
     labelRadius: n('--vinyl-label-radius', 0.175),
     labelHoleRadius: n('--vinyl-hole-radius', 0.02),
@@ -165,9 +170,13 @@ function computeArmAngles() {
 let GEO;
 
 function refreshTheme() {
+  const prev = GEO;
   readTheme();
   layout();
   GEO = computeArmAngles();
+  window.dispatchEvent(new CustomEvent('mynyl:themechange', {
+    detail: { previousGeo: prev, geo: GEO, theme: THEME }
+  }));
 }
 
 refreshTheme();
@@ -285,6 +294,32 @@ function drawGrooves(CX, CY, R, angle) {
   }
 }
 
+function drawSplatter(CX, CY, R, angle) {
+  if (THEME.splatterCount <= 0) return;
+
+  rCtx.save();
+  rCtx.translate(CX, CY);
+  rCtx.rotate(angle * 0.82);
+
+  for (let i = 0; i < THEME.splatterCount; i++) {
+    const base = i + 1;
+    const randA = (Math.sin(base * 12.9898) + 1) * 0.5;
+    const randB = (Math.sin(base * 78.233) + 1) * 0.5;
+    const randC = (Math.sin(base * 33.157) + 1) * 0.5;
+    const radial = R * (0.24 + randA * 0.58);
+    const theta = randB * Math.PI * 2;
+    const rx = Math.cos(theta) * radial;
+    const ry = Math.sin(theta) * radial;
+    const dotR = Math.max(1.25, R * THEME.splatterSize * (0.35 + randC));
+    rCtx.beginPath();
+    rCtx.arc(rx, ry, dotR, 0, Math.PI * 2);
+    rCtx.fillStyle = i % 3 === 0 ? THEME.splatterSecondary : THEME.splatterColor;
+    rCtx.fill();
+  }
+
+  rCtx.restore();
+}
+
 // ─── draw: record ──────────────────────────────────────────
 function drawRecord(angle) {
   const R = REC_R;
@@ -313,7 +348,16 @@ function drawRecord(angle) {
   rCtx.lineWidth = 2;
   rCtx.stroke();
 
+  if (THEME.vinylShadowRing !== 'none') {
+    rCtx.beginPath();
+    rCtx.arc(CX, CY, R - 5, 0, Math.PI * 2);
+    rCtx.strokeStyle = THEME.vinylShadowRing;
+    rCtx.lineWidth = Math.max(4, R * 0.02);
+    rCtx.stroke();
+  }
+
   drawGrooves(CX, CY, R, angle);
+  if (THEME.vinylStyle === 'splatter') drawSplatter(CX, CY, R, angle);
 
   rCtx.save();
   rCtx.translate(CX, CY);

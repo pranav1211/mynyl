@@ -122,3 +122,23 @@ body { background: var(--page-bg) }
   border-color: rgba(192,122,40,0.5);
   color: var(--accent-strong);
 }
+
+.theme-switcher-label { color: rgba(238,202,128,0.22) }
+
+.theme-select {
+  color: rgba(238,202,128,0.8);
+  background-color: rgba(13,5,1,0.74);
+  border-color: rgba(170,100,28,0.24);
+  box-shadow:
+    0 8px 24px rgba(0,0,0,0.28),
+    0 1px 0 rgba(255,190,85,0.08) inset;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath fill='rgba(238,202,128,0.72)' d='M5 6 .4.8 1.6 0 5 3.5 8.4 0 9.6.8z'/%3E%3C/svg%3E");
+}
+
+.theme-select:focus {
+  outline: none;
+  border-color: rgba(192,122,40,0.54);
+  box-shadow:
+    0 8px 24px rgba(0,0,0,0.28),
+    0 0 0 1px rgba(192,122,40,0.24);
+}

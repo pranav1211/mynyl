@@ -12,11 +12,51 @@ let pendingTimer = null;
 let songIsOver = false;
 let loadedFile  = null;
 
+const THEMES = {
+  wood: 'css/theme-wood.css',
+  'minimal-light': 'css/theme-minimal-light.css',
+};
+
+function applyThemeSelection(themeName) {
+  const href = THEMES[themeName] || THEMES.wood;
+  const select = document.getElementById('theme-select');
+  if (select && select.value !== themeName) select.value = themeName;
+  if (window.setMynylTheme) window.setMynylTheme(href);
+  try { localStorage.setItem('mynyl-theme', themeName); } catch {}
+}
+
 function initArmAngles() {
   armAngle = GEO.aParked;
   targetArmAngle = GEO.aParked;
 }
 initArmAngles();
+
+window.addEventListener('mynyl:themechange', () => {
+  if (isDragging) return;
+
+  if (!hasFile || songIsOver) {
+    armAngle = GEO.aParked;
+    targetArmAngle = GEO.aParked;
+    return;
+  }
+
+  if (isSpinningUp) {
+    armAngle = GEO.aOuter;
+    targetArmAngle = GEO.aOuter;
+    return;
+  }
+
+  if (duration > 0 && (isPlaying || currentTime > 0)) {
+    const p = Math.max(0, Math.min(1, currentTime / duration));
+    const nextAngle = progressToAngle(p);
+    armAngle = nextAngle;
+    targetArmAngle = nextAngle;
+    return;
+  }
+
+  armAngle = GEO.aParked;
+  targetArmAngle = GEO.aParked;
+});
 
 // ─── disk speed (visual only — does not affect arm/seek) ───
 let spinRPM = 33;
@@ -30,6 +70,10 @@ document.getElementById('speed-dec').addEventListener('click', () => setSpinRPM(
 document.getElementById('speed-inc').addEventListener('click', () => setSpinRPM(spinRPM + 1));
 document.getElementById('speed-val').addEventListener('change', e => {
   setSpinRPM(parseInt(e.target.value, 10));
+});
+
+document.getElementById('theme-select').addEventListener('change', e => {
+  applyThemeSelection(e.target.value);
 });
 
 // ─── queue ──────────────────────────────────────────────────
@@ -493,4 +537,11 @@ document.getElementById('eye-btn').addEventListener('click', () => {
 });
 
 // ─── init ──────────────────────────────────────────────────
+try {
+  const savedTheme = localStorage.getItem('mynyl-theme');
+  if (savedTheme && THEMES[savedTheme]) {
+    applyThemeSelection(savedTheme);
+  }
+} catch {}
+
 queueRender();

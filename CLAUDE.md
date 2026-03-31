@@ -9,7 +9,13 @@ index.html          — HTML shell only, no inline CSS or JS
 css/
   main.css          — structural styles only (layout, sizing, no colors)
   theme-wood.css    — warm amber theme entrypoint (imports sub-files)
+  theme-minimal-light.css — bright minimal theme entrypoint
   themes/wood/
+    background.css  — layout tokens, background, hint overlay
+    vinyl.css       — vinyl + label tokens
+    arm.css         — tonearm tokens
+    ui.css          — panel/button/text styling
+  themes/minimal-light/
     background.css  — layout tokens, background, hint overlay
     vinyl.css       — vinyl + label tokens
     arm.css         — tonearm tokens
@@ -59,6 +65,9 @@ To add a new theme, duplicate `css/theme-wood.css` plus `css/themes/wood/`, rena
 Renderer helpers:
 - `window.refreshMynylTheme()` — rereads CSS variables and recomputes geometry
 - `window.setMynylTheme(href)` — swaps the active theme stylesheet when `data-mynyl-theme` is present on the `<link>`
+
+UI note:
+- theme selection lives in the bottom-right `#theme-select` dropdown and persists via `localStorage`
 
 ## Needle geometry
 - `aOuter` — arm angle when stylus is at outer groove edge (~91% of record radius)

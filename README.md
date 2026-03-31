@@ -78,6 +78,11 @@ Theme structure:
 - tonearm tokens: `css/themes/wood/arm.css`
 - UI shell styles: `css/themes/wood/ui.css`
 
+Included themes:
+
+- `wood` — warm amber / mahogany
+- `minimal-light` — bright white deck with a slim modern arm and splatter-style vinyl
+
 The theme file can control:
 
 - background glow and drift

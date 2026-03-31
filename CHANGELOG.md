@@ -3,6 +3,8 @@
 ## [Current]
 
 ### Added
+- **Minimal light theme** — bright white theme with a slim straight arm, pale UI shell, and splatter-style vinyl treatment
+- **Theme switcher** — bottom-right selector swaps between bundled themes and remembers the last choice
 - **Theme subcomponents** — the wood theme is now split into `background.css`, `vinyl.css`, `arm.css`, and `ui.css`, with `css/theme-wood.css` acting as the entrypoint
 - **Full visual theme contract** — theme CSS can now control record geometry, groove treatment, tonearm style, headshell/needle/counterweight proportions, background motion, and UI palette
 - **Theme refresh helpers** — `window.refreshMynylTheme()` rereads CSS variables and `window.setMynylTheme(href)` swaps the active theme stylesheet
