@@ -158,16 +158,20 @@
   //  GOAL B — Floating Bauhaus background + click multiply / reflow
   // ─────────────────────────────────────────────────────────────
   // Shape kinds drawn flat with hard edges.
-  const KINDS = ["circle", "triangle", "bar", "quarter", "square", "diamond", "ring"];
+  const KINDS = ["circle", "triangle", "bar", "quarter", "square",
+                 "diamond", "ring", "cross", "semicircle"];
 
   const BASE_COUNT = 16;   // starting number of floating shapes
   const MAX_COUNT  = 52;   // hard cap before the next click loops/resets
 
-  // Arrangement modes cycled on each reflow (click OR the 30s auto-timer).
-  const MODES = ["scatter", "grid", "ring", "stripes", "spiral", "diagonal", "columns", "checker"];
+  // Arrangement modes cycled on each reflow (click OR the auto-timer). Every
+  // mode keeps shapes OUT of the centre — the record disc sits there and would
+  // hide anything behind it, so a central keep-out radius is enforced below.
+  const MODES = ["scatter", "grid", "ring", "stripes", "spiral",
+                 "diagonal", "columns", "checker", "corners"];
   let modeIndex = 0;
 
-  const AUTO_REFLOW_MS = 30000;   // automated pattern change every 30s
+  const AUTO_REFLOW_MS = 15000;   // automated pattern change every 15s
   let lastReorgTs = 0;            // ts of the last reflow (click or auto)
 
   let shapes = [];         // closure-scoped pool of floating shapes
@@ -211,7 +215,12 @@
     const cols = Math.ceil(Math.sqrt(m));
     const rows = Math.ceil(m / cols);
     const cx = w / 2, cy = h / 2;
-    const ringR = Math.min(w, h) * 0.36;
+    // Central keep-out: the record disc (radius ≈ 0.42·min) lives here, so no
+    // shape may target inside this radius or it would hide behind the disc.
+    const keepOut = Math.min(w, h) * 0.46;
+    const ringR = Math.min(w, h) * 0.52;   // outside the disc
+
+    const CORNERS = [[0.15, 0.17], [0.85, 0.17], [0.15, 0.83], [0.85, 0.83]];
 
     for (let i = 0; i < n; i++) {
       const s = shapes[i];
@@ -225,17 +234,17 @@
         s.tx = cx + Math.cos(a) * ringR;
         s.ty = cy + Math.sin(a) * ringR;
       } else if (mode === "stripes") {
-        // Diagonal stripes: lanes across the viewport.
+        // Horizontal lanes across the viewport.
         const lanes = 5;
         const lane = i % lanes;
         const t = (i / m);
         s.tx = (t * 1.4 - 0.2) * w;
         s.ty = ((lane + 0.5) / lanes) * h + (rand() - 0.5) * 40;
       } else if (mode === "spiral") {
-        // Archimedean spiral winding out from the centre.
-        const turns = 3;
+        // Annular spiral — starts OUTSIDE the disc and winds outward.
+        const turns = 2.5;
         const a = (i / m) * Math.PI * 2 * turns;
-        const rr = (i / m) * Math.min(w, h) * 0.46;
+        const rr = keepOut + (i / m) * (Math.min(w, h) * 0.5 - keepOut);
         s.tx = cx + Math.cos(a) * rr;
         s.ty = cy + Math.sin(a) * rr;
       } else if (mode === "diagonal") {
@@ -259,11 +268,29 @@
         const c = i % cols2;
         s.tx = ((c + 0.5 + (r % 2 ? 0.5 : 0)) / (cols2 + 0.5)) * w;
         s.ty = ((r + 0.5) / rows2) * h;
+      } else if (mode === "corners") {
+        // Four corner clusters — the centre stays empty by construction.
+        const k = CORNERS[i % 4];
+        s.tx = (k[0] + (rand() - 0.5) * 0.16) * w;
+        s.ty = (k[1] + (rand() - 0.5) * 0.16) * h;
       } else {
         // scatter
         s.tx = rand() * w;
         s.ty = rand() * h;
       }
+
+      // Enforce the central keep-out for EVERY mode: if a target landed behind
+      // the disc, push it radially out to the keep-out ring (with a little
+      // jitter so shapes don't stack on a hard circle).
+      const dx = s.tx - cx, dy = s.ty - cy;
+      const d = Math.hypot(dx, dy);
+      if (d < keepOut) {
+        const a = d < 1 ? rand() * Math.PI * 2 : Math.atan2(dy, dx);
+        const rr = keepOut + rand() * 40;
+        s.tx = cx + Math.cos(a) * rr;
+        s.ty = cy + Math.sin(a) * rr;
+      }
+
       // Fresh slow motion so the new pattern keeps drifting.
       s.vx = (rand() - 0.5) * 16;
       s.vy = (rand() - 0.5) * 16;
@@ -305,6 +332,15 @@
       ctx.beginPath();
       ctx.arc(0, 0, z * 0.42, 0, Math.PI * 2);
       ctx.stroke();
+    } else if (s.kind === "cross") {
+      const t = z * 0.24;
+      ctx.fillRect(-t / 2, -z * 0.5, t, z);
+      ctx.fillRect(-z * 0.5, -t / 2, z, t);
+    } else if (s.kind === "semicircle") {
+      ctx.beginPath();
+      ctx.arc(0, 0, z * 0.5, Math.PI, 0, false);
+      ctx.closePath();
+      ctx.fill();
     } else { // quarter-circle
       ctx.beginPath();
       ctx.moveTo(0, 0);

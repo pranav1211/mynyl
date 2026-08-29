@@ -893,7 +893,6 @@ function animate(ts) {
   }
 
   groovePulse = damp(groovePulse, getLevel(), GROOVE_DAMP, dt);
-  playbackState.armAngle = armAngle;
 
   // Perspective tilt + micro-wobble (#2). Tied to spinFactor so the disc only
   // leans/breathes while it spins; idle returns to flat, keeping arm dragging
