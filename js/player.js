@@ -291,8 +291,13 @@ function queueRender() {
   });
 }
 
+function fileKey(f) {
+  return f.name + ':' + (f.size || 0);
+}
+
 function queueAddFiles(files) {
-  const additions = files.filter(isAudioFile);
+  const existing = new Set(queueFiles.map(fileKey));
+  const additions = files.filter(f => isAudioFile(f) && !existing.has(fileKey(f)));
   if (additions.length === 0) return;
 
   queueFiles.push(...additions);
@@ -934,6 +939,170 @@ uiRegions.forEach(el => {
 document.addEventListener('keydown', resetUiHideTimer);
 resetUiHideTimer();
 
+// ─── folder library (File System Access API) ───────────────
+// Remembers a music folder across sessions. The directory *handle* (not the
+// files) is stored in IndexedDB — localStorage/cookies can't hold a handle.
+// On return, if the browser still grants read access we repopulate the queue
+// automatically; otherwise a one-click "Reconnect" re-grants it (browsers
+// require a user gesture to restore file-system permission after a restart).
+const FS_SUPPORTED = typeof window.showDirectoryPicker === 'function';
+const LIB_DB = 'mynyl-lib', LIB_STORE = 'handles', LIB_KEY = 'musicDir';
+const folderBtn = document.getElementById('queue-folder-btn');
+const folderStatus = document.getElementById('queue-folder-status');
+let musicDirHandle = null;
+
+function idbOpen() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open(LIB_DB, 1);
+    r.onupgradeneeded = () => r.result.createObjectStore(LIB_STORE);
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+async function idbSet(key, val) {
+  const db = await idbOpen();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(LIB_STORE, 'readwrite');
+    tx.objectStore(LIB_STORE).put(val, key);
+    tx.oncomplete = () => res();
+    tx.onerror = () => rej(tx.error);
+  });
+}
+async function idbGet(key) {
+  const db = await idbOpen();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(LIB_STORE, 'readonly');
+    const rq = tx.objectStore(LIB_STORE).get(key);
+    rq.onsuccess = () => res(rq.result);
+    rq.onerror = () => rej(rq.error);
+  });
+}
+async function idbDel(key) {
+  const db = await idbOpen();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(LIB_STORE, 'readwrite');
+    tx.objectStore(LIB_STORE).delete(key);
+    tx.oncomplete = () => res();
+    tx.onerror = () => rej(tx.error);
+  });
+}
+
+const isAudioName = n => /\.(mp3|flac|m4a|ogg|wav|aac|opus|wma)$/i.test(n);
+
+// Walk the folder (and up to a few levels of subfolders) for audio files.
+async function collectAudioFromDir(dirHandle, depth = 0, out = []) {
+  if (depth > 6 || out.length >= 2000) return out;
+  for await (const entry of dirHandle.values()) {
+    if (out.length >= 2000) break;
+    if (entry.kind === 'file') {
+      if (isAudioName(entry.name)) {
+        try { out.push(await entry.getFile()); } catch { }
+      }
+    } else if (entry.kind === 'directory') {
+      await collectAudioFromDir(entry, depth + 1, out);
+    }
+  }
+  return out;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function setFolderStatus(html) {
+  if (!folderStatus) return;
+  if (!html) { folderStatus.hidden = true; folderStatus.innerHTML = ''; return; }
+  folderStatus.hidden = false;
+  folderStatus.innerHTML = html;
+}
+
+async function loadFolderIntoQueue(handle, announce) {
+  const safeName = escapeHtml(handle.name);
+  setFolderStatus(`<span class="folder-name">Scanning “${safeName}”…</span>`);
+  let files = [];
+  try {
+    files = await collectAudioFromDir(handle);
+  } catch {
+    setFolderStatus(`<span class="folder-name">Couldn't read “${safeName}”.</span>`);
+    return;
+  }
+  files.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+  queueAddFiles(files);
+  renderConnectedFolder(handle.name, files.length);
+  if (announce) queueRender();
+}
+
+function renderConnectedFolder(name, count) {
+  setFolderStatus(
+    `<span class="folder-name">📁 ${escapeHtml(name)} · ${count} track${count === 1 ? '' : 's'}</span>` +
+    `<button class="folder-action" id="folder-forget">Forget</button>`
+  );
+  const forget = document.getElementById('folder-forget');
+  if (forget) forget.addEventListener('click', forgetFolder);
+}
+
+function renderReconnectFolder(name) {
+  setFolderStatus(
+    `<span class="folder-name">📁 ${escapeHtml(name)}</span>` +
+    `<button class="folder-action" id="folder-reconnect">Reconnect</button>` +
+    `<button class="folder-action" id="folder-forget">Forget</button>`
+  );
+  const rc = document.getElementById('folder-reconnect');
+  if (rc) rc.addEventListener('click', reconnectFolder);
+  const forget = document.getElementById('folder-forget');
+  if (forget) forget.addEventListener('click', forgetFolder);
+}
+
+async function pickFolder() {
+  let handle;
+  try {
+    handle = await window.showDirectoryPicker({ id: 'mynyl-music', mode: 'read' });
+  } catch (err) {
+    if (err && err.name === 'AbortError') return;      // user cancelled
+    setFolderStatus(`<span class="folder-name">Folder access unavailable here. Try serving over http://localhost.</span>`);
+    return;
+  }
+  musicDirHandle = handle;
+  try { await idbSet(LIB_KEY, handle); } catch { }
+  await loadFolderIntoQueue(handle, true);
+}
+
+async function reconnectFolder() {
+  if (!musicDirHandle) return;
+  try {
+    const perm = await musicDirHandle.requestPermission({ mode: 'read' });
+    if (perm !== 'granted') return;
+  } catch { return; }
+  await loadFolderIntoQueue(musicDirHandle, true);
+}
+
+async function forgetFolder() {
+  musicDirHandle = null;
+  try { await idbDel(LIB_KEY); } catch { }
+  setFolderStatus('');
+}
+
+async function restoreFolderOnLoad() {
+  if (!FS_SUPPORTED) return;
+  let handle;
+  try { handle = await idbGet(LIB_KEY); } catch { return; }
+  if (!handle) return;
+  musicDirHandle = handle;
+  let perm = 'prompt';
+  try { perm = await handle.queryPermission({ mode: 'read' }); } catch { }
+  if (perm === 'granted') {
+    await loadFolderIntoQueue(handle, false);
+  } else {
+    renderReconnectFolder(handle.name);           // needs a gesture to re-grant
+  }
+}
+
+if (FS_SUPPORTED && folderBtn) {
+  folderBtn.hidden = false;
+  folderBtn.addEventListener('click', pickFolder);
+}
+
 // ─── init ──────────────────────────────────────────────────
 try {
   const savedTheme = localStorage.getItem('mynyl-theme');
@@ -943,3 +1112,4 @@ try {
 }
 
 queueRender();
+restoreFolderOnLoad();
