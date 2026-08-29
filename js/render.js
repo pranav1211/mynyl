@@ -64,6 +64,8 @@ function readTheme() {
     vinylSheen: n('--vinyl-sheen', 0.055),
     vinylSheenWidth: n('--vinyl-sheen-width', 0.06),
     vinylSheenAngle: n('--vinyl-sheen-angle', 0) * Math.PI / 180,
+    vinylSheenShape: (v('--vinyl-sheen-shape') || 'bar').toLowerCase(),
+    vinylSpinMarks: Math.max(0, n('--vinyl-spin-marks', 0.5)),
     vinylSpecular: n('--vinyl-specular', 0.05),
     vinylRimLight: v('--vinyl-rim-light') || 'rgba(255,255,255,0.04)',
     vinylRimShadow: v('--vinyl-rim-shadow') || 'rgba(0,0,0,0.33)',
@@ -346,12 +348,17 @@ function drawGrooves(CX, CY, R, angle) {
     return;
   }
 
+  // Grooves are a STATIC radial texture — real vinyl grooves don't change
+  // brightness as the disc turns. The old code modulated alpha by `angle`,
+  // which sent brightness waves in/out across the rings and read as rippling
+  // rather than spinning. Here the per-ring warp is fixed (a stationary
+  // radial variation) and the audio `groovePulse` brightens the whole field
+  // uniformly, so it breathes with the beat without any traveling wave.
   for (let gr = start; gr < end; gr += spacing) {
-    const pulse = pulseAmt * Math.sin(gr * 3.2 + angle * 2.5);
-    const base = THEME.vinylGrooveAlpha + THEME.grooveWarp * Math.sin(gr * 0.35 + angle * 0.07);
+    const base = THEME.vinylGrooveAlpha + THEME.grooveWarp * Math.sin(gr * 0.35);
     rCtx.beginPath();
     rCtx.arc(CX, CY, gr, 0, Math.PI * 2);
-    rCtx.strokeStyle = `rgba(${THEME.vinylGrooveRgb},${Math.max(0, base + pulse)})`;
+    rCtx.strokeStyle = `rgba(${THEME.vinylGrooveRgb},${Math.max(0, base + pulseAmt)})`;
     rCtx.lineWidth = width;
     rCtx.stroke();
   }
@@ -390,6 +397,41 @@ function drawSplatter(CX, CY, R, angle) {
     rCtx.fill();
   }
 
+  rCtx.restore();
+}
+
+// Faint radial pressing marks that rotate WITH the disc. Because concentric
+// grooves are rotationally symmetric they convey no spin on their own; these
+// few subtle streaks give an honest rotation cue as they sweep under the fixed
+// glare. Kept deliberately low-alpha so they read as surface sheen, not dust.
+const SPIN_MARKS = [
+  { a: 0.40, r: 0.62, len: 0.16, w: 1.0, alpha: 0.030 },
+  { a: 2.30, r: 0.50, len: 0.12, w: 0.8, alpha: 0.022 },
+  { a: 4.10, r: 0.72, len: 0.18, w: 1.1, alpha: 0.026 },
+  { a: 5.40, r: 0.42, len: 0.10, w: 0.7, alpha: 0.018 },
+];
+function drawSpinMarks(CX, CY, R, angle) {
+  const k = THEME.vinylSpinMarks;
+  rCtx.save();
+  rCtx.translate(CX, CY);
+  rCtx.rotate(angle);
+  rCtx.globalCompositeOperation = 'lighter';
+  rCtx.lineCap = 'round';
+  for (const m of SPIN_MARKS) {
+    const cos = Math.cos(m.a), sin = Math.sin(m.a);
+    const r0 = R * (m.r - m.len / 2);
+    const r1 = R * (m.r + m.len / 2);
+    const grad = rCtx.createLinearGradient(cos * r0, sin * r0, cos * r1, sin * r1);
+    grad.addColorStop(0, 'rgba(255,255,255,0)');
+    grad.addColorStop(0.5, `rgba(255,255,255,${m.alpha * k})`);
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    rCtx.beginPath();
+    rCtx.strokeStyle = grad;
+    rCtx.lineWidth = Math.max(0.6, R * 0.004 * m.w);
+    rCtx.moveTo(cos * r0, sin * r0);
+    rCtx.lineTo(cos * r1, sin * r1);
+    rCtx.stroke();
+  }
   rCtx.restore();
 }
 
@@ -475,29 +517,59 @@ function drawDefaultRecord(angle) {
   drawGrooves(CX, CY, R, angle);
   if (THEME.vinylStyle === 'splatter') drawSplatter(CX, CY, R, angle);
 
-  // Fixed reflection layer — a real light source doesn't spin with the disc.
-  // The sheen is locked to its own axis (`--vinyl-sheen-angle`) so the two
-  // opposing glints stay put while the record rotates underneath them.
+  // Honest rotation cue — concentric grooves are rotationally symmetric and so
+  // can't show spin on their own. Real records read as turning via the label
+  // plus faint pressing marks / dust that pass under the fixed glare. A few
+  // very subtle radial glints rotate WITH the disc so the spin is legible
+  // without the old radial ripple. `--vinyl-spin-marks` scales (0 disables).
+  if (THEME.vinylStyle !== 'minimal' && THEME.vinylSpinMarks > 0) {
+    drawSpinMarks(CX, CY, R, angle);
+  }
+
+  // Fixed reflection layer — a real light source doesn't spin with the disc,
+  // so the glare is LOCKED to its own light axis (`--vinyl-sheen-angle`) and
+  // the record rotates underneath it. On a grooved surface the anisotropic
+  // highlight runs perpendicular to the grooves — i.e. radially — so the
+  // default `bar` shape is a pair of opposing radial lobes (the classic vinyl
+  // glare). `--vinyl-sheen-shape: arcs` restores the legacy tangential glints.
   // `--vinyl-sheen` sets intensity, `--vinyl-sheen-width` the glint size.
   if (THEME.vinylSheen > 0) {
     rCtx.save();
     rCtx.translate(CX, CY);
     rCtx.rotate(THEME.vinylSheenAngle);
-    const sg = rCtx.createLinearGradient(-R, 0, R, 0);
-    const halfSheen = THEME.vinylSheenWidth / 2;
     const sheenA = THEME.vinylSheen;
-    sg.addColorStop(0, 'rgba(255,255,255,0)');
-    sg.addColorStop(Math.max(0, 0.18 - halfSheen), 'rgba(255,255,255,0)');
-    sg.addColorStop(0.18, `rgba(255,255,255,${sheenA * 0.5})`);
-    sg.addColorStop(Math.min(0.5, 0.18 + halfSheen), 'rgba(255,255,255,0)');
-    sg.addColorStop(Math.max(0.5, 0.82 - halfSheen), 'rgba(255,255,255,0)');
-    sg.addColorStop(0.82, `rgba(255,255,255,${sheenA})`);
-    sg.addColorStop(Math.min(1, 0.82 + halfSheen), 'rgba(255,255,255,0)');
-    sg.addColorStop(1, 'rgba(255,255,255,0)');
-    rCtx.beginPath();
-    rCtx.arc(0, 0, R - 1, 0, Math.PI * 2);
-    rCtx.fillStyle = sg;
-    rCtx.fill();
+    if (THEME.vinylSheenShape === 'arcs') {
+      const sg = rCtx.createLinearGradient(-R, 0, R, 0);
+      const halfSheen = THEME.vinylSheenWidth / 2;
+      sg.addColorStop(0, 'rgba(255,255,255,0)');
+      sg.addColorStop(Math.max(0, 0.18 - halfSheen), 'rgba(255,255,255,0)');
+      sg.addColorStop(0.18, `rgba(255,255,255,${sheenA * 0.5})`);
+      sg.addColorStop(Math.min(0.5, 0.18 + halfSheen), 'rgba(255,255,255,0)');
+      sg.addColorStop(Math.max(0.5, 0.82 - halfSheen), 'rgba(255,255,255,0)');
+      sg.addColorStop(0.82, `rgba(255,255,255,${sheenA})`);
+      sg.addColorStop(Math.min(1, 0.82 + halfSheen), 'rgba(255,255,255,0)');
+      sg.addColorStop(1, 'rgba(255,255,255,0)');
+      rCtx.beginPath();
+      rCtx.arc(0, 0, R - 1, 0, Math.PI * 2);
+      rCtx.fillStyle = sg;
+      rCtx.fill();
+    } else {
+      // Two opposing radial lobes along the light axis. `--vinyl-sheen-width`
+      // widens the lobes; they fade at the spindle and rim.
+      const dist = R * 0.52;
+      const spread = R * (0.34 + THEME.vinylSheenWidth * 3.2);
+      for (const sgn of [-1, 1]) {
+        const gy = sgn * dist;
+        const g = rCtx.createRadialGradient(0, gy, 0, 0, gy, spread);
+        g.addColorStop(0, `rgba(255,255,255,${sheenA})`);
+        g.addColorStop(0.45, `rgba(255,255,255,${sheenA * 0.3})`);
+        g.addColorStop(1, 'rgba(255,255,255,0)');
+        rCtx.beginPath();
+        rCtx.arc(0, 0, R - 1, 0, Math.PI * 2);
+        rCtx.fillStyle = g;
+        rCtx.fill();
+      }
+    }
     rCtx.restore();
   }
 

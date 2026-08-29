@@ -109,12 +109,16 @@ window.MYNYL_THEME_MODULES = window.MYNYL_THEME_MODULES || {};
     ctx.arc(0, 0, radius * 0.985, 0, Math.PI * 2);
     ctx.fill();
 
-    // ── 2. anisotropic brushed-metal reflection (rotates with the disc) ──
+    // ── 2. anisotropic brushed-metal reflection (LOCKED to the light) ──
+    // Real glints are fixed by light + viewer geometry, not the disc's spin.
+    // The three lobes stay put on a fixed axis; only their intensity breathes
+    // with the audio while the record turns beneath them.
     ctx.globalCompositeOperation = "lighter";
     const reflA = (0.07 + intensity * 0.07).toFixed(3);
     const base = "rgba(255,205,130,";
+    const REFLECTION_AXIS = -0.62;   // fixed light axis (upper-left), radians
     ctx.save();
-    ctx.rotate(angle);
+    ctx.rotate(REFLECTION_AXIS);
     if (typeof ctx.createConicGradient === "function") {
       const conic = ctx.createConicGradient(0, 0, 0);
       const peaks = [0.10, 0.46, 0.80];           // irregular lobes = machined metal
