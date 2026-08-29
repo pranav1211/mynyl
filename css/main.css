@@ -36,14 +36,20 @@ body.queue-modal-open {
   position: absolute;
   z-index: 1;
   border-radius: 50%;
-  pointer-events: none
+  pointer-events: none;
+  transform-origin: center center;
+  will-change: transform;
+  backface-visibility: hidden
 }
 
 #arm-canvas {
   position: absolute;
   z-index: 2;
   pointer-events: all;
-  cursor: grab
+  cursor: grab;
+  transform-origin: center center;
+  will-change: transform;
+  backface-visibility: hidden
 }
 
 #arm-canvas.dragging {

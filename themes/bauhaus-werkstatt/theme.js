@@ -158,14 +158,17 @@
   //  GOAL B — Floating Bauhaus background + click multiply / reflow
   // ─────────────────────────────────────────────────────────────
   // Shape kinds drawn flat with hard edges.
-  const KINDS = ["circle", "triangle", "bar", "quarter"];
+  const KINDS = ["circle", "triangle", "bar", "quarter", "square", "diamond", "ring"];
 
-  const BASE_COUNT = 14;   // starting number of floating shapes
-  const MAX_COUNT  = 48;   // hard cap before the next click loops/resets
+  const BASE_COUNT = 16;   // starting number of floating shapes
+  const MAX_COUNT  = 52;   // hard cap before the next click loops/resets
 
-  // Arrangement modes cycled on each click.
-  const MODES = ["scatter", "grid", "ring", "stripes"];
+  // Arrangement modes cycled on each reflow (click OR the 30s auto-timer).
+  const MODES = ["scatter", "grid", "ring", "stripes", "spiral", "diagonal", "columns", "checker"];
   let modeIndex = 0;
+
+  const AUTO_REFLOW_MS = 30000;   // automated pattern change every 30s
+  let lastReorgTs = 0;            // ts of the last reflow (click or auto)
 
   let shapes = [];         // closure-scoped pool of floating shapes
   let lastBg = performance.now();
@@ -228,6 +231,34 @@
         const t = (i / m);
         s.tx = (t * 1.4 - 0.2) * w;
         s.ty = ((lane + 0.5) / lanes) * h + (rand() - 0.5) * 40;
+      } else if (mode === "spiral") {
+        // Archimedean spiral winding out from the centre.
+        const turns = 3;
+        const a = (i / m) * Math.PI * 2 * turns;
+        const rr = (i / m) * Math.min(w, h) * 0.46;
+        s.tx = cx + Math.cos(a) * rr;
+        s.ty = cy + Math.sin(a) * rr;
+      } else if (mode === "diagonal") {
+        // Single sweeping diagonal band, corner to corner.
+        const t = i / m;
+        s.tx = (t * 1.2 - 0.1) * w;
+        s.ty = (t * 1.2 - 0.1) * h + (rand() - 0.5) * 36;
+      } else if (mode === "columns") {
+        // A few tall columns with shapes stacked vertically.
+        const colsN = 4;
+        const col = i % colsN;
+        const rowN = Math.ceil(m / colsN);
+        const row = (i / colsN) | 0;
+        s.tx = ((col + 0.5) / colsN) * w;
+        s.ty = ((row + 0.5) / Math.max(1, rowN)) * h;
+      } else if (mode === "checker") {
+        // Offset checkerboard — every other row nudged half a cell.
+        const cols2 = Math.ceil(Math.sqrt(m));
+        const rows2 = Math.ceil(m / cols2);
+        const r = (i / cols2) | 0;
+        const c = i % cols2;
+        s.tx = ((c + 0.5 + (r % 2 ? 0.5 : 0)) / (cols2 + 0.5)) * w;
+        s.ty = ((r + 0.5) / rows2) * h;
       } else {
         // scatter
         s.tx = rand() * w;
@@ -258,6 +289,22 @@
       ctx.fill();
     } else if (s.kind === "bar") {
       ctx.fillRect(-z * 0.6, -z * 0.16, z * 1.2, z * 0.32);
+    } else if (s.kind === "square") {
+      ctx.fillRect(-z * 0.42, -z * 0.42, z * 0.84, z * 0.84);
+    } else if (s.kind === "diamond") {
+      ctx.beginPath();
+      ctx.moveTo(0, -z * 0.55);
+      ctx.lineTo(z * 0.5, 0);
+      ctx.lineTo(0, z * 0.55);
+      ctx.lineTo(-z * 0.5, 0);
+      ctx.closePath();
+      ctx.fill();
+    } else if (s.kind === "ring") {
+      ctx.strokeStyle = s.color;
+      ctx.lineWidth = Math.max(2, z * 0.14);
+      ctx.beginPath();
+      ctx.arc(0, 0, z * 0.42, 0, Math.PI * 2);
+      ctx.stroke();
     } else { // quarter-circle
       ctx.beginPath();
       ctx.moveTo(0, 0);
@@ -267,12 +314,33 @@
     }
   }
 
+  // Advance to the next arrangement (and, on a user click, multiply the pool).
+  // Shared by the click handler and the 30s auto-reflow so both animate the
+  // same smooth snap via the per-frame easing in drawBackground.
+  function reorganize(w, h, multiply) {
+    modeIndex = (modeIndex + 1) % MODES.length;
+    if (multiply) {
+      let next = Math.min(MAX_COUNT, Math.round(shapes.length * 1.6) + 2);
+      if (shapes.length >= MAX_COUNT) next = BASE_COUNT;  // loop, never unbounded
+      ensureCount(next, w, h);
+    }
+    reassignTargets(MODES[modeIndex], w, h);
+  }
+
   function drawBackground({ ts, ctx, width, height, defaults }) {
     // 1) Clear + paint the warm-paper gradient FIRST.
     defaults.drawBackground(ts);
 
     // Mark that Bauhaus drew this frame (active-theme guard for clicks).
     lastBgTs = ts;
+
+    // Automated reflow: every 30s the pattern advances on its own so the
+    // background keeps moving even without a click. Seeded on first run.
+    if (lastReorgTs === 0) lastReorgTs = ts;
+    if (ts - lastReorgTs >= AUTO_REFLOW_MS) {
+      lastReorgTs = ts;
+      reorganize(width, height, false);   // gentle: reflow without multiplying
+    }
 
     // Real-time delta, clamped so a backgrounded tab doesn't jump.
     let dt = (ts - lastBg) / 1000;
@@ -346,19 +414,11 @@
       const w = seededViewport.w || window.innerWidth;
       const h = seededViewport.h || window.innerHeight;
 
-      // Advance the arrangement and multiply the count.
-      modeIndex = (modeIndex + 1) % MODES.length;
-
-      let next = Math.min(MAX_COUNT, Math.round(shapes.length * 1.6) + 2);
-      if (shapes.length >= MAX_COUNT) {
-        // Loop: reset to base count with a fresh pattern (never unbounded).
-        next = BASE_COUNT;
-      }
-      ensureCount(next, w, h);
-
-      // Re-assign target positions/velocities to the NEW arrangement; the
-      // per-frame easing in drawBackground animates the smooth snap.
-      reassignTargets(MODES[modeIndex], w, h);
+      // Heavy, deliberate change: advance the pattern AND multiply the pool.
+      reorganize(w, h, true);
+      // Restart the 30s auto window so a manual click doesn't immediately
+      // collide with an automated reflow.
+      lastReorgTs = performance.now();
     });
   }
 

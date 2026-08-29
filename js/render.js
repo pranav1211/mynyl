@@ -66,6 +66,8 @@ function readTheme() {
     vinylSheenAngle: n('--vinyl-sheen-angle', 0) * Math.PI / 180,
     vinylSheenShape: (v('--vinyl-sheen-shape') || 'bar').toLowerCase(),
     vinylSpinMarks: Math.max(0, n('--vinyl-spin-marks', 0.5)),
+    vinylContactGlint: Math.max(0, n('--vinyl-contact-glint', 0.6)),
+    vinylLightDrift: n('--vinyl-light-drift', 4),
     vinylSpecular: n('--vinyl-specular', 0.05),
     vinylRimLight: v('--vinyl-rim-light') || 'rgba(255,255,255,0.04)',
     vinylRimShadow: v('--vinyl-rim-shadow') || 'rgba(0,0,0,0.33)',
@@ -435,6 +437,46 @@ function drawSpinMarks(CX, CY, R, angle) {
   rCtx.restore();
 }
 
+// Needle-contact spark + a short groove arc that shimmers with the audio.
+// (x, y) is the stylus tip; (CX, CY, R) the disc centre and radius.
+function drawContactGlint(x, y, CX, CY, R) {
+  const pulse = Math.max(0, Math.min(1, groovePulse));
+  const k = THEME.vinylContactGlint;
+  rCtx.save();
+  rCtx.beginPath();
+  rCtx.arc(CX, CY, R - 1, 0, Math.PI * 2);
+  rCtx.clip();
+  rCtx.globalCompositeOperation = 'lighter';
+
+  // #6 — a short arc of groove at the contact radius brightens with level.
+  const cr = Math.hypot(x - CX, y - CY);
+  const ca = Math.atan2(y - CY, x - CX);
+  const span = 0.42;
+  rCtx.beginPath();
+  rCtx.arc(CX, CY, cr, ca - span, ca + span);
+  rCtx.strokeStyle = `rgba(255,244,220,${(0.06 + 0.28 * pulse) * k})`;
+  rCtx.lineWidth = Math.max(1, R * 0.012);
+  rCtx.stroke();
+
+  // #1 — soft halo + hot core at the stylus.
+  const halo = R * 0.085;
+  const a = (0.42 + 0.4 * pulse) * k;
+  const g = rCtx.createRadialGradient(x, y, 0, x, y, halo);
+  g.addColorStop(0, `rgba(255,250,235,${a})`);
+  g.addColorStop(0.3, `rgba(255,238,205,${a * 0.4})`);
+  g.addColorStop(1, 'rgba(255,238,205,0)');
+  rCtx.fillStyle = g;
+  rCtx.beginPath();
+  rCtx.arc(x, y, halo, 0, Math.PI * 2);
+  rCtx.fill();
+  rCtx.fillStyle = `rgba(255,255,255,${(0.5 + 0.35 * pulse) * k})`;
+  rCtx.beginPath();
+  rCtx.arc(x, y, Math.max(1, R * 0.006), 0, Math.PI * 2);
+  rCtx.fill();
+
+  rCtx.restore();
+}
+
 function loadThemeModule(themeName, scriptHref) {
   if (!scriptHref) {
     ACTIVE_THEME_MODULE = themeModules[themeName] || {};
@@ -536,7 +578,11 @@ function drawDefaultRecord(angle) {
   if (THEME.vinylSheen > 0) {
     rCtx.save();
     rCtx.translate(CX, CY);
-    rCtx.rotate(THEME.vinylSheenAngle);
+    // Slow, independent light drift — as if the room light shifts. Keeps the
+    // frame from feeling frozen without implying disc rotation. (#5)
+    const drift = THEME.vinylLightDrift * Math.PI / 180 *
+      Math.sin(performance.now() / 1000 * 0.15);
+    rCtx.rotate(THEME.vinylSheenAngle + drift);
     const sheenA = THEME.vinylSheen;
     if (THEME.vinylSheenShape === 'arcs') {
       const sg = rCtx.createLinearGradient(-R, 0, R, 0);
@@ -586,6 +632,17 @@ function drawDefaultRecord(angle) {
     rCtx.arc(CX, CY, R - 1, 0, Math.PI * 2);
     rCtx.fillStyle = gloss;
     rCtx.fill();
+  }
+
+  // Needle-contact glint (#1) + audio-reactive contact ring (#6). A bright
+  // spark sits where the stylus meets the groove — fixed at the needle radius
+  // while the disc spins beneath it — and a short arc of groove lights up with
+  // the audio level. Only while actually playing and the tip is on a groove.
+  const pb = window.MYNYL_PLAYBACK_STATE || {};
+  if (THEME.vinylContactGlint > 0 && pb.playing &&
+      typeof pb.armAngle === 'number' && tipOnGroove(pb.armAngle)) {
+    const tip = armTipPos(pb.armAngle);   // page coords == record-canvas coords
+    drawContactGlint(tip.x, tip.y, CX, CY, R);
   }
 
   const lR = R * THEME.labelRadius;

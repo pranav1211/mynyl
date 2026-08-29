@@ -48,10 +48,17 @@
 
       <div class="controls">
         <div class="ctrl-row">
-          <button class="ctrl-btn sm" id="btn-prev" title="Restart">
+          <button class="ctrl-btn sm" id="btn-prev" title="Previous track ([)">
             <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
               <rect x="2" y="2" width="2" height="10" rx="1" />
               <path d="M11 2L5 7l6 5V2z" />
+            </svg>
+          </button>
+          <button class="ctrl-btn sm" id="btn-seekback" title="Back 10s (←)">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M7 3L3 7l4 4" />
+              <path d="M11 3L7 7l4 4" />
             </svg>
           </button>
           <button class="ctrl-btn sm" id="btn-stop" title="Stop">
@@ -65,6 +72,13 @@
             </svg>
           </button>
           <button class="ctrl-btn sm" id="btn-fwd" title="Forward 10s (→)">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M7 3l4 4-4 4" />
+              <path d="M3 3l4 4-4 4" />
+            </svg>
+          </button>
+          <button class="ctrl-btn sm" id="btn-next" title="Next track (])">
             <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
               <rect x="10" y="2" width="2" height="10" rx="1" />
               <path d="M3 2l6 5-6 5V2z" />
@@ -90,7 +104,7 @@
             <div class="slider-thumb" id="vol-thumb" style="left:70%"></div>
           </div>
         </div>
-        <div class="kbd-hint">space · ← → seek · ↑ ↓ vol · fullscreen</div>
+        <div class="kbd-hint">space · ← → seek · [ ] track · ↑ ↓ vol</div>
       </div>
 
       <!-- Disk speed control -->

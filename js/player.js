@@ -207,6 +207,10 @@ function queuePrev() {
   }
 }
 
+function queueNext() {
+  if (queueIdx >= 0 && queueIdx < queueFiles.length - 1) queuePlay(queueIdx + 1);
+}
+
 function queueRender() {
   const countText = queueCountText();
   queueCountDock.textContent = countText;
@@ -614,6 +618,17 @@ document.getElementById('btn-prev').addEventListener('click', () => {
   queuePrev();
 });
 
+document.getElementById('btn-next').addEventListener('click', () => {
+  queueNext();
+});
+
+document.getElementById('btn-seekback').addEventListener('click', () => {
+  if (!hasFile) return;
+  audio.currentTime = Math.max(0, audio.currentTime - 10);
+  currentTime = audio.currentTime;
+  updatePositionState();
+});
+
 document.getElementById('btn-fwd').addEventListener('click', () => {
   if (!hasFile) return;
   const next = audio.currentTime + 10;
@@ -751,6 +766,9 @@ aCv.addEventListener('mousedown', e => {
   if (!hasFile || isPlaying || isSpinningUp) return;
   isDragging = true;
   aCv.classList.add('dragging');
+  // Snap the perspective tilt flat so the pointer→angle mapping is exact while
+  // dragging (a mid-ease transform would skew where the needle lands).
+  neutralizeStageTilt();
   e.preventDefault();
 });
 
@@ -824,6 +842,14 @@ document.addEventListener('keydown', e => {
       e.preventDefault();
       setVol(volLevel - 0.05);
       break;
+    case 'BracketLeft':
+      e.preventDefault();
+      queuePrev();
+      break;
+    case 'BracketRight':
+      e.preventDefault();
+      queueNext();
+      break;
   }
 });
 
@@ -867,10 +893,41 @@ function animate(ts) {
   }
 
   groovePulse = damp(groovePulse, getLevel(), GROOVE_DAMP, dt);
+  playbackState.armAngle = armAngle;
+
+  // Perspective tilt + micro-wobble (#2). Tied to spinFactor so the disc only
+  // leans/breathes while it spins; idle returns to flat, keeping arm dragging
+  // (which is blocked during playback anyway) pixel-accurate.
+  applyStageTilt(ts, spinFactor);
 
   drawBg(ts);
   drawRecord(rotAngle * Math.PI / 180);
   drawArm(armAngle);
+}
+
+const tiltRecordCv = document.getElementById('record-canvas');
+const tiltArmCv = document.getElementById('arm-canvas');
+let stageTiltShown = 0;
+function neutralizeStageTilt() {
+  stageTiltShown = 0;
+  if (tiltRecordCv) tiltRecordCv.style.transform = 'none';
+  if (tiltArmCv) tiltArmCv.style.transform = 'none';
+}
+function applyStageTilt(ts, spinFactor) {
+  // Ease the tilt amount toward the spin state so it fades in/out smoothly.
+  stageTiltShown += (spinFactor - stageTiltShown) * 0.05;
+  const s = stageTiltShown;
+  let tf = 'none';
+  if (s > 0.002) {
+    const t = ts / 1000;
+    const tiltX = s * (7 + Math.sin(t * 0.9) * 1.1);       // lean back + breathe
+    const tiltZ = s * Math.sin(t * 1.37 + 1.1) * 0.5;       // gentle sway
+    const bob = s * Math.sin(t * 0.9) * 2;                  // vertical bob (px)
+    tf = `perspective(1500px) translateY(${bob.toFixed(2)}px) ` +
+         `rotateX(${tiltX.toFixed(2)}deg) rotateZ(${tiltZ.toFixed(2)}deg)`;
+  }
+  if (tiltRecordCv) tiltRecordCv.style.transform = tf;
+  if (tiltArmCv) tiltArmCv.style.transform = tf;
 }
 
 requestAnimationFrame(animate);
