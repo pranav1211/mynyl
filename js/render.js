@@ -63,6 +63,7 @@ function readTheme() {
     grooveWarp: n('--vinyl-groove-warp', 0.035),
     vinylSheen: n('--vinyl-sheen', 0.055),
     vinylSheenWidth: n('--vinyl-sheen-width', 0.06),
+    vinylSheenAngle: n('--vinyl-sheen-angle', 0) * Math.PI / 180,
     vinylSpecular: n('--vinyl-specular', 0.05),
     vinylRimLight: v('--vinyl-rim-light') || 'rgba(255,255,255,0.04)',
     vinylRimShadow: v('--vinyl-rim-shadow') || 'rgba(0,0,0,0.33)',
@@ -474,27 +475,31 @@ function drawDefaultRecord(angle) {
   drawGrooves(CX, CY, R, angle);
   if (THEME.vinylStyle === 'splatter') drawSplatter(CX, CY, R, angle);
 
-  // Rotating reflection band — real vinyl shows two opposing glints, so the
-  // sheen is mirrored across the centre for a more believable spin.
-  rCtx.save();
-  rCtx.translate(CX, CY);
-  rCtx.rotate(angle);
-  const sg = rCtx.createLinearGradient(-R, 0, R, 0);
-  const halfSheen = THEME.vinylSheenWidth / 2;
-  const sheenA = THEME.vinylSheen;
-  sg.addColorStop(0, 'rgba(255,255,255,0)');
-  sg.addColorStop(Math.max(0, 0.18 - halfSheen), 'rgba(255,255,255,0)');
-  sg.addColorStop(0.18, `rgba(255,255,255,${sheenA * 0.5})`);
-  sg.addColorStop(Math.min(0.5, 0.18 + halfSheen), 'rgba(255,255,255,0)');
-  sg.addColorStop(Math.max(0.5, 0.82 - halfSheen), 'rgba(255,255,255,0)');
-  sg.addColorStop(0.82, `rgba(255,255,255,${sheenA})`);
-  sg.addColorStop(Math.min(1, 0.82 + halfSheen), 'rgba(255,255,255,0)');
-  sg.addColorStop(1, 'rgba(255,255,255,0)');
-  rCtx.beginPath();
-  rCtx.arc(0, 0, R - 1, 0, Math.PI * 2);
-  rCtx.fillStyle = sg;
-  rCtx.fill();
-  rCtx.restore();
+  // Fixed reflection layer — a real light source doesn't spin with the disc.
+  // The sheen is locked to its own axis (`--vinyl-sheen-angle`) so the two
+  // opposing glints stay put while the record rotates underneath them.
+  // `--vinyl-sheen` sets intensity, `--vinyl-sheen-width` the glint size.
+  if (THEME.vinylSheen > 0) {
+    rCtx.save();
+    rCtx.translate(CX, CY);
+    rCtx.rotate(THEME.vinylSheenAngle);
+    const sg = rCtx.createLinearGradient(-R, 0, R, 0);
+    const halfSheen = THEME.vinylSheenWidth / 2;
+    const sheenA = THEME.vinylSheen;
+    sg.addColorStop(0, 'rgba(255,255,255,0)');
+    sg.addColorStop(Math.max(0, 0.18 - halfSheen), 'rgba(255,255,255,0)');
+    sg.addColorStop(0.18, `rgba(255,255,255,${sheenA * 0.5})`);
+    sg.addColorStop(Math.min(0.5, 0.18 + halfSheen), 'rgba(255,255,255,0)');
+    sg.addColorStop(Math.max(0.5, 0.82 - halfSheen), 'rgba(255,255,255,0)');
+    sg.addColorStop(0.82, `rgba(255,255,255,${sheenA})`);
+    sg.addColorStop(Math.min(1, 0.82 + halfSheen), 'rgba(255,255,255,0)');
+    sg.addColorStop(1, 'rgba(255,255,255,0)');
+    rCtx.beginPath();
+    rCtx.arc(0, 0, R - 1, 0, Math.PI * 2);
+    rCtx.fillStyle = sg;
+    rCtx.fill();
+    rCtx.restore();
+  }
 
   // Fixed gloss — a soft specular hotspot anchored upper-left (the light
   // source stays put while the disc turns), giving the vinyl a glossy 3D read.
