@@ -1,0 +1,11 @@
+{
+  "branch": "master",
+  "type": "static",
+  "isPrimaryDomain": false,
+  "pm2Config": null,
+  "application": "mynyl",
+  "repository": "git@github.com:pranav1211/mynyl.git",
+  "deploymentPath": "/projects/mynyl",
+  "domain": "mynyl.beyondmebtw.com",
+  "nginxConfig": null
+}
